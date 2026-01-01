@@ -1,0 +1,15 @@
+# Binary
+/bin/
+gateway
+
+# Runtime config
+gateway.yaml
+
+# Env
+.env
+
+# Logs
+*.log
+
+# OS
+.DS_Store
