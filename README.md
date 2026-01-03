@@ -1,172 +1,150 @@
 # Simple Gateway
 
-**Simple Gateway** adalah API Gateway ringan berbasis Go yang dirancang untuk **self-hosted**, **internal tools**, dan **indie/startup kecil** yang membutuhkan kontrol routing dan security dasar **tanpa kompleksitas berlebihan** seperti Kong atau Envoy.
+**Simple Gateway** adalah API Gateway ringan berbasis Go yang dibuat untuk **self-hosted** dan **internal services**—bukan untuk enterprise-scale systems.  
+Project ini lahir dari kebutuhan praktis: ketika nginx config mulai berulang dan sulit dirawat, tapi solusi seperti Kong atau Spring Cloud Gateway terasa terlalu berat.
 
-Project ini berfokus pada:
-- konfigurasi **sederhana (YAML)**
-- **satu pintu masuk** (single entry point)
-- **mudah dipahami & dioperasikan**
-- siap untuk **production awal**
+Fokus utamanya adalah **simplicity, clarity, dan low operational overhead**.
 
 ---
 
-## ✨ Fitur Utama (v1)
+## Kenapa Simple Gateway?
+
+Awalnya menggunakan **nginx langsung**, setiap menambah service harus menambah konfigurasi baru:
+routing, auth, rate limit, dan aturan lainnya.  
+Saat jumlah service bertambah, konfigurasi menjadi panjang, duplikatif, dan sulit dirawat.
+
+Solusi seperti **Kong** atau **Spring Cloud Gateway** memang sangat powerful, tapi sering kali **overkill** untuk kebutuhan self-hosted atau internal tools.
+
+Simple Gateway mengambil pendekatan berbeda:
+- satu binary
+- satu file konfigurasi
+- tanpa framework
+- tanpa setup berlapis
+
+---
+
+## Target Use Case
+
+Simple Gateway **bukan** untuk:
+- enterprise dengan ribuan API
+- IAM kompleks (OAuth2 variants, RBAC enterprise)
+- multi-team, multi-tenant gateway
+- cloud-native platform besar
+
+Simple Gateway **cocok untuk**:
+- self-hosted environments
+- internal services
+- small–medium scale systems
+- developer atau startup kecil
+- kebutuhan gateway yang sederhana tapi rapi
+
+---
+
+## Fitur Utama
 
 - Host & path based routing
-- Reverse proxy ke backend (HTTP)
-- API Key Authentication (per-route)
+- Reverse proxy ke backend service
+- API Key authentication (per route)
 - Multi subdomain dalam satu gateway
 - Konfigurasi berbasis YAML
 - Environment variable untuk secret
-- Bisa dijalankan sebagai **systemd service**
-- Cocok untuk self-hosted / on-prem
+- Bisa dijalankan sebagai systemd service
+- Mudah di-versioning (Git-friendly)
 
 ---
 
-## 🧱 Arsitektur Singkat
+## Arsitektur Singkat
 
-Client / Browser / API Client
-↓
-Simple Gateway (Go)
-↓
-Backend Service
-(Nginx / API / App)
-
-
-Semua request **harus melewati gateway**.  
-Routing dan security dikontrol di satu tempat.
+Client / Browser / API Client  
+↓  
+Simple Gateway  
+↓  
+Backend Services (Nginx / API / App)
 
 ---
 
-## 📁 Struktur Project
+## Struktur Project
+
 simple-gateway/
-├── cmd/
-│ └── gateway/
-│ └── main.go
-├── internal/
-│ ├── auth/
-│ │ └── apikey.go
-│ ├── proxy/
-│ ├── router/
-│ │ └── router.go
-│ └── server/
-│ └── http.go
-├── config/
-│ └── gateway.yaml.example
-├── go.mod
-├── go.sum
-├── README.md
-└── .gitignore
-
+├── cmd/gateway/main.go  
+├── internal/  
+├── config/gateway.yaml.example  
+├── go.mod  
+├── go.sum  
+├── README.md  
+└── .gitignore  
 
 ---
 
-## ⚙️ Konfigurasi (`gateway.yaml`)
+## Konfigurasi (gateway.yaml)
 
 Contoh konfigurasi:
 
-```yaml
 listen: :8080
 
 apis:
-  - host: server.example.com
-    path: /
-    forward_to: http://localhost:80
-    protect:
-      api_key: true
+- host: server.example.com
+  path: /
+  forward_to: http://localhost:80
+  protect:
+    api_key: true
 
-  - host: api.example.com
-    path: /
-    forward_to: http://localhost:9000
-    protect:
-      api_key: true
+---
 
-| Field             | Deskripsi                          |
-| ----------------- | ---------------------------------- |
-| `listen`          | Port gateway                       |
-| `host`            | Domain / subdomain yang dicocokkan |
-| `path`            | Path rule (`/` berarti semua path) |
-| `forward_to`      | Backend tujuan                     |
-| `protect.api_key` | Aktifkan API key authentication    |
-
-⚠️ Secret TIDAK disimpan di YAML
-
-🔐 API Key Authentication
-Set API key
+## API Key Authentication
 
 API key diambil dari environment variable:
+
 export GATEWAY_API_KEY=super-secret-key
 
-Request harus membawa header:
+Header request:
+
 X-API-Key: super-secret-key
 
-| Kondisi           | Response                      |
-| ----------------- | ----------------------------- |
-| Tidak ada API key | 401 Unauthorized              |
-| API key salah     | 401 Unauthorized              |
-| API key benar     | Request diteruskan ke backend |
+---
 
-🚀 Menjalankan Gateway
-Mode Development
+## Menjalankan Gateway
+
+Development:
+
 go run ./cmd/gateway -config config/gateway.yaml.example
 
-Build Binary
+Build:
+
 go build -o gateway ./cmd/gateway
 
-🖥️ Menjalankan sebagai systemd service (Production)
-Lokasi standar
-Binary: /usr/local/bin/gateway
+---
+
+## systemd Service
+
+Binary: /usr/local/bin/gateway  
 Config: /etc/simple-gateway/gateway.yaml
 
-Contoh service file
-/etc/systemd/system/simple-gateway.service
+---
 
-[Unit]
-Description=Simple Gateway
-After=network.target
+## Filosofi Desain
 
-[Service]
-ExecStart=/usr/local/bin/gateway -config /etc/simple-gateway/gateway.yaml
-Environment=GATEWAY_API_KEY=super-secret-key
-Restart=always
-User=www-data
-Group=www-data
+Project ini sengaja **tidak mencoba menyelesaikan semua masalah**.  
+Jika kebutuhan sudah enterprise-scale, gunakan tool enterprise.
 
-[Install]
-WantedBy=multi-user.target
+---
 
-Aktifkan service:
-sudo systemctl daemon-reload
-sudo systemctl enable simple-gateway
-sudo systemctl start simple-gateway
+## Roadmap
 
-Cek status dan log:
-sudo systemctl status simple-gateway
-journalctl -u simple-gateway -f
+- Rate limiting
+- Basic auth
+- Custom error handling
+- Graceful shutdown
+- Config reload
 
-🧪 Testing
-Tanpa API key (harus gagal)
-curl -H "Host: api.example.com" http://localhost:8080
+---
 
-Dengan API key (harus tembus)
-curl -H "Host: api.example.com" \
-     -H "X-API-Key: super-secret-key" \
-     http://localhost:8080
+## Lisensi
 
-🆚 Kenapa Simple Gateway?
-Simple Gateway bukan pengganti Kong atau Envoy.
+MIT License
 
-Project ini dibuat untuk:
-developer yang tidak butuh fitur enterprise
-ingin kontrol penuh
-setup cepat
-mudah dipahami
-mudah dimodifikasi
+---
 
-🛣️ Roadmap
-Rate limiting (429)
-Basic authentication
-Error override dari YAML
-Graceful shutdown
-Reload config tanpa restart
-Metrics (Prometheus)
+## Author
+
+Andreas Nainggolan
